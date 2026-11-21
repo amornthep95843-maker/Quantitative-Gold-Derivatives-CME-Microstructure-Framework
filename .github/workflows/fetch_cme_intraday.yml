@@ -1,0 +1,38 @@
+name: Fetch CME Gold Intraday Options
+
+on:
+  schedule:
+    # รันอัตโนมัติทุก 15 นาที (ตัวสคริปต์ Python จะเช็กวัน-เวลาและสถานะตลาด CME เอง)
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # เพิ่มปุ่มให้กดสั่งรันดึงข้อมูลสดด้วยมือได้ตลอดเวลา
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: pip install requests tzdata
+
+      - name: Run Real-Time Checked CME Options Fetcher
+        run: python scripts/fetch_cme_options.py
+
+      - name: Commit and Push Updated data.json
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -f data.json ]; then
+            git add data.json
+            git diff --staged --quiet || git commit -m "chore: update intraday CME options ($(TZ='Asia/Bangkok' date +'%Y-%m-%d %H:%M ICT'))"
+            git push
+          fi
