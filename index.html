@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quantitative Gold SD &amp; Intraday OI Engine</title>
+  <title>Quantitative Gold SD &amp; Live TradingView Options Engine</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -30,20 +30,35 @@
 <body class="min-h-screen p-3 md:p-6">
   <div class="max-w-7xl mx-auto space-y-5">
 
-    <!-- Header & Live Sync Bar -->
-    <div class="card p-4 md:p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <!-- Header & Live Control Bar -->
+    <div class="card p-4 md:p-5 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
       <div>
         <div class="flex items-center gap-2 flex-wrap">
-          <h1 class="text-lg md:text-xl font-bold text-white">Quantitative Gold SD &amp; Intraday OI Engine</h1>
-          <span class="px-2 py-0.5 text-xs font-mono rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">GC / OG / 0DTE</span>
-          <span id="syncBadge" class="px-2.5 py-0.5 text-xs font-mono rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">กำลังโหลด...</span>
+          <h1 class="text-lg md:text-xl font-bold text-white">Quantitative Gold SD &amp; Live Options Engine</h1>
+          <span class="px-2 py-0.5 text-xs font-mono rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">COMEX:GC1!</span>
+          <span id="syncBadge" class="px-2.5 py-0.5 text-xs font-mono rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">กำลังเชื่อมต่อ TradingView...</span>
         </div>
-        <p id="clockBar" class="text-xs text-slate-400 font-mono mt-1.5">TH: -- | CME: -- | Trade Date: --</p>
+        <p id="clockBar" class="text-xs text-slate-400 font-mono mt-1.5">TH: -- | CME: --</p>
       </div>
+
       <div class="flex flex-wrap items-center gap-2">
-        <button id="btnLive" onclick="loadLiveData()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition">ดึงข้อมูลสด (data.json)</button>
-        <button id="btnSim23" onclick="loadSimNov23()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition">จำลองวันจันทร์ 23 พ.ย. 2026</button>
-        <button onclick="resetDefaults()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition">รีเซ็ตค่า</button>
+        <!-- เลือกวันหมดอายุ -->
+        <div class="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5">
+          <span class="text-xs text-slate-400">วันหมดอายุ:</span>
+          <select id="expSelect" onchange="onFilterChange()" class="bg-transparent text-xs font-mono text-amber-300 font-semibold focus:outline-none">
+            <option value="">กำลังโหลด...</option>
+          </select>
+        </div>
+
+        <!-- เลือกจำนวน Strikes 10 / 20 / 30 -->
+        <div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg p-1 gap-1">
+          <button id="st10" onclick="setStrikeCount(10)" class="px-2.5 py-1 text-xs font-mono rounded text-slate-300 hover:bg-slate-800">10</button>
+          <button id="st20" onclick="setStrikeCount(20)" class="px-2.5 py-1 text-xs font-mono rounded text-slate-300 hover:bg-slate-800">20</button>
+          <button id="st30" onclick="setStrikeCount(30)" class="px-2.5 py-1 text-xs font-mono rounded bg-sky-600 text-white font-semibold">30</button>
+        </div>
+
+        <button onclick="fetchFromWorker()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition">ดึงสดทันที</button>
+        <button id="btnAuto" onclick="toggleAutoRefresh()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition">Auto 30s: ปิด</button>
       </div>
     </div>
 
@@ -51,13 +66,13 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="card p-4">
         <div class="flex justify-between text-xs text-slate-400"><span>XAUUSD Spot (หัก Diff)</span><span id="kpiDiff" class="font-mono text-sky-400">Diff -7.50</span></div>
-        <div id="kpiSpot" class="text-3xl font-bold font-mono text-amber-400 mt-1">4357.50</div>
-        <div id="kpiFut" class="text-xs text-slate-400 font-mono mt-1">CME Futures: 4365.00</div>
+        <div id="kpiSpot" class="text-3xl font-bold font-mono text-amber-400 mt-1">--</div>
+        <div id="kpiFut" class="text-xs text-slate-400 font-mono mt-1">CME Futures: --</div>
       </div>
       <div class="card p-4">
         <div class="flex justify-between text-xs text-slate-400"><span>ระยะแกว่ง 1SD (ตาม DTE)</span><span id="kpiDte" class="font-mono text-sky-400">DTE 1.0d</span></div>
-        <div id="kpi1SD" class="text-3xl font-bold font-mono text-white mt-1">±71.31</div>
-        <div id="kpiRule16" class="text-xs text-slate-400 font-mono mt-1">Rule of 16: ±1.95%</div>
+        <div id="kpi1SD" class="text-3xl font-bold font-mono text-white mt-1">--</div>
+        <div id="kpiRule16" class="text-xs text-slate-400 font-mono mt-1">Rule of 16: --</div>
       </div>
       <div class="card p-4">
         <div class="flex justify-between text-xs text-slate-400"><span>สภาวะความผันผวน (PCA)</span><span id="kpiVolChg" class="font-mono">-0.15%</span></div>
@@ -71,12 +86,12 @@
       </div>
     </div>
 
-    <!-- Intraday 30-Strike Put/Call Bar Chart -->
+    <!-- Live Put/Call Bar Chart -->
     <div class="card p-4 md:p-5">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>
-          <h2 class="text-base font-bold text-white">กราฟเสาสัญญา 30 Strikes (Put / Call Intraday Volume &amp; OI)</h2>
-          <p id="chartSubtitle" class="text-xs text-slate-400">สีส้ม = Put | สีฟ้า = Call | เส้นประเหลือง = ราคา Futures ปัจจุบัน</p>
+          <h2 id="chartTitle" class="text-base font-bold text-white">กราฟเสาสัญญา 30 Strikes (TradingView Live)</h2>
+          <p id="chartSubtitle" class="text-xs text-slate-400">สีส้ม = Put | สีฟ้า = Call | อัปเดตตรงจาก COMEX:GC1!</p>
         </div>
         <div class="flex items-center gap-2">
           <button id="modeVol" onclick="setChartMode('vol')" class="px-3 py-1.5 text-xs font-semibold rounded bg-sky-600 text-white">Intraday Volume</button>
@@ -93,22 +108,22 @@
       <div class="card p-4 md:p-5 lg:col-span-2">
         <h2 class="text-base font-bold text-white mb-3">พารามิเตอร์ CME &amp; กำแพง OI (คำนวณอัตโนมัติ)</h2>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <div><label class="text-slate-400 block mb-1">CME Futures (GC)</label><input id="inFut" type="number" step="0.1" value="4365.0" oninput="recalc()" class="input-box" /></div>
+          <div><label class="text-slate-400 block mb-1">CME Futures (GC)</label><input id="inFut" type="number" step="0.1" value="3515.4" oninput="recalc()" class="input-box" /></div>
           <div><label class="text-slate-400 block mb-1">ค่า Diff (Fut - Spot)</label><input id="inDiff" type="number" step="0.1" value="7.5" oninput="recalc()" class="input-box text-amber-300" /></div>
           <div><label class="text-slate-400 block mb-1">ATM Implied Vol (%)</label><input id="inVol" type="number" step="0.01" value="31.21" oninput="recalc()" class="input-box" /></div>
           <div><label class="text-slate-400 block mb-1">DTE (วันคงเหลือ)</label><input id="inDte" type="number" step="0.1" value="1.0" oninput="recalc()" class="input-box" /></div>
           <div><label class="text-slate-400 block mb-1">Vol Chg (%)</label><input id="inVolChg" type="number" step="0.01" value="-0.15" oninput="recalc()" class="input-box" /></div>
-          <div><label class="text-rose-400 block mb-1">Call Wall (Futures)</label><input id="inCallWall" type="number" step="5" value="4400" oninput="recalc()" class="input-box border-rose-500/40" /></div>
-          <div><label class="text-purple-400 block mb-1">Max Pain (Futures)</label><input id="inMaxPain" type="number" step="5" value="4365" oninput="recalc()" class="input-box border-purple-500/40" /></div>
-          <div><label class="text-emerald-400 block mb-1">Put Wall (Futures)</label><input id="inPutWall" type="number" step="5" value="4325" oninput="recalc()" class="input-box border-emerald-500/40" /></div>
+          <div><label class="text-rose-400 block mb-1">Call Wall (Futures)</label><input id="inCallWall" type="number" step="5" value="3550" oninput="recalc()" class="input-box border-rose-500/40" /></div>
+          <div><label class="text-purple-400 block mb-1">Max Pain (Futures)</label><input id="inMaxPain" type="number" step="5" value="3515" oninput="recalc()" class="input-box border-purple-500/40" /></div>
+          <div><label class="text-emerald-400 block mb-1">Put Wall (Futures)</label><input id="inPutWall" type="number" step="5" value="3480" oninput="recalc()" class="input-box border-emerald-500/40" /></div>
         </div>
       </div>
 
-      <!-- Recovery Engine Box -->
+      <!-- Recovery Engine -->
       <div class="card p-4 md:p-5">
         <h2 class="text-base font-bold text-white mb-2">Recovery Engine (บล็อก 12.5$)</h2>
         <div class="flex gap-2 mb-3">
-          <input id="inEntry" type="number" step="0.1" value="4357.5" oninput="recalc()" class="input-box text-xs" placeholder="จุดเข้า Spot" />
+          <input id="inEntry" type="number" step="0.1" value="3507.9" oninput="recalc()" class="input-box text-xs" placeholder="จุดเข้า Spot" />
           <select id="inSide" onchange="recalc()" class="input-box text-xs w-28">
             <option value="BUY">BUY</option>
             <option value="SELL">SELL</option>
@@ -147,36 +162,139 @@
   </div>
 
   <script>
+    const WORKER_URL = "https://tv-gold-options.amornthep95843.workers.dev";
+
+    let rawData = null;
     let chartInstance = null;
-    let currentStrikes = [];
+    let strikeCount = 30;
     let chartMode = 'vol';
+    let autoTimer = null;
     let lastTableRows = [];
 
     function updateClocks() {
       const now = new Date();
       const th = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Bangkok', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' }).format(now);
       const cme = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Chicago', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' }).format(now);
-      const el = document.getElementById('clockBar');
-      if (!el.dataset.locked) {
-        el.textContent = `เวลาจริงตอนนี้ — TH: ${th} ICT | CME: ${cme} CST`;
-      }
+      const fetched = rawData?.fetched_at_utc
+        ? new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Bangkok', hour:'2-digit', minute:'2-digit', second:'2-digit' }).format(new Date(rawData.fetched_at_utc))
+        : '--';
+      document.getElementById('clockBar').textContent = `TH: ${th} ICT | CME: ${cme} CST | ดึงข้อมูลล่าสุด: ${fetched} น.`;
     }
     setInterval(updateClocks, 1000);
     updateClocks();
+
+    function formatExpLabel(exp) {
+      if (!exp || exp.length !== 8) return exp;
+      return `${exp.slice(0,4)}-${exp.slice(4,6)}-${exp.slice(6,8)}`;
+    }
+
+    function setStrikeCount(n) {
+      strikeCount = n;
+      [10, 20, 30].forEach(k => {
+        document.getElementById(`st${k}`).className = k === n
+          ? 'px-2.5 py-1 text-xs font-mono rounded bg-sky-600 text-white font-semibold'
+          : 'px-2.5 py-1 text-xs font-mono rounded text-slate-300 hover:bg-slate-800';
+      });
+      onFilterChange();
+    }
 
     function setChartMode(mode) {
       chartMode = mode;
       document.getElementById('modeVol').className = mode === 'vol' ? 'px-3 py-1.5 text-xs font-semibold rounded bg-sky-600 text-white' : 'px-3 py-1.5 text-xs font-semibold rounded bg-slate-700 text-slate-300';
       document.getElementById('modeOi').className = mode === 'oi' ? 'px-3 py-1.5 text-xs font-semibold rounded bg-sky-600 text-white' : 'px-3 py-1.5 text-xs font-semibold rounded bg-slate-700 text-slate-300';
-      renderChart();
+      onFilterChange();
     }
 
-    function renderChart() {
+    function toggleAutoRefresh() {
+      const btn = document.getElementById('btnAuto');
+      if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+        btn.textContent = 'Auto 30s: ปิด';
+        btn.className = 'px-3 py-2 text-xs font-semibold rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition';
+      } else {
+        autoTimer = setInterval(fetchFromWorker, 30000);
+        btn.textContent = 'Auto 30s: เปิด';
+        btn.className = 'px-3 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition';
+        fetchFromWorker();
+      }
+    }
+
+    async function fetchFromWorker() {
+      const badge = document.getElementById('syncBadge');
+      badge.textContent = 'กำลังดึงข้อมูลสด...';
+      badge.className = 'px-2.5 py-0.5 text-xs font-mono rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
+
+      try {
+        const res = await fetch(`${WORKER_URL}?t=${Date.now()}`);
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Worker Error');
+
+        rawData = data;
+        const prevExp = document.getElementById('expSelect').value;
+        const sel = document.getElementById('expSelect');
+        sel.innerHTML = data.expirations.map(e => `<option value="${e}">${formatExpLabel(e)}</option>`).join('');
+        if (prevExp && data.expirations.includes(prevExp)) {
+          sel.value = prevExp;
+        }
+
+        if (data.underlying?.futures_price) {
+          document.getElementById('inFut').value = data.underlying.futures_price;
+          const diff = parseFloat(document.getElementById('inDiff').value) || 7.5;
+          document.getElementById('inEntry').value = (data.underlying.futures_price - diff).toFixed(1);
+        }
+
+        badge.textContent = `LIVE TRADINGVIEW (${data.expirations.length} วันหมดอายุ)`;
+        badge.className = 'px-2.5 py-0.5 text-xs font-mono rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        onFilterChange();
+      } catch (err) {
+        badge.textContent = `เชื่อมต่อไม่สำเร็จ: ${err.message}`;
+        badge.className = 'px-2.5 py-0.5 text-xs font-mono rounded bg-rose-500/20 text-rose-300 border border-rose-500/30';
+      }
+    }
+
+    function onFilterChange() {
+      if (!rawData) return;
+      const exp = document.getElementById('expSelect').value;
+      const chain = rawData.chains?.[exp] || [];
+      const fut = parseFloat(document.getElementById('inFut').value) || rawData.underlying?.futures_price || 0;
+
+      const selected = [...chain]
+        .sort((a, b) => Math.abs(a.strike - fut) - Math.abs(b.strike - fut))
+        .slice(0, strikeCount)
+        .sort((a, b) => a.strike - b.strike);
+
+      if (selected.length > 0) {
+        const cw = selected.reduce((m, x) => (x.call_oi > m.call_oi || (x.call_oi === m.call_oi && x.call_vol > m.call_vol)) ? x : m, selected[0]);
+        const pw = selected.reduce((m, x) => (x.put_oi > m.put_oi || (x.put_oi === m.put_oi && x.put_vol > m.put_vol)) ? x : m, selected[0]);
+        const atm = selected.reduce((m, x) => Math.abs(x.strike - fut) < Math.abs(m.strike - fut) ? x : m, selected[0]);
+
+        document.getElementById('inCallWall').value = cw.strike;
+        document.getElementById('inPutWall').value = pw.strike;
+
+        const ivs = [atm.call_iv, atm.put_iv].filter(v => v != null && v > 0);
+        if (ivs.length > 0) {
+          const avgIv = ivs.reduce((a, b) => a + b, 0) / ivs.length;
+          document.getElementById('inVol').value = (avgIv < 2 ? avgIv * 100 : avgIv).toFixed(2);
+        }
+
+        const totalP = selected.reduce((a, b) => a + b.put_vol, 0);
+        const totalC = selected.reduce((a, b) => a + b.call_vol, 0);
+        const ratio = totalC > 0 ? (totalP / totalC).toFixed(2) : '--';
+        document.getElementById('kpiPcRatio').textContent = `P/C Vol Ratio: ${ratio} (P:${totalP} / C:${totalC})`;
+      }
+
+      document.getElementById('chartTitle').textContent = `กราฟเสาสัญญา ${strikeCount} Strikes — วันหมดอายุ ${formatExpLabel(exp)}`;
+      renderChart(selected);
+      recalc();
+    }
+
+    function renderChart(strikes) {
       const ctx = document.getElementById('oiChart').getContext('2d');
       if (chartInstance) chartInstance.destroy();
-      const labels = currentStrikes.map(s => s.strike);
-      const putData = currentStrikes.map(s => chartMode === 'vol' ? s.put_vol : s.put_oi);
-      const callData = currentStrikes.map(s => chartMode === 'vol' ? s.call_vol : s.call_oi);
+      const labels = strikes.map(s => s.strike);
+      const putData = strikes.map(s => chartMode === 'vol' ? s.put_vol : s.put_oi);
+      const callData = strikes.map(s => chartMode === 'vol' ? s.call_vol : s.call_oi);
 
       chartInstance = new Chart(ctx, {
         type: 'bar',
@@ -241,7 +359,6 @@
         vbEl.textContent = 'Vol Expansion (ระวัง Breakout / Jump)';
       }
 
-      // Gravity Traffic Light
       const dCall = Math.abs(callWall - fut);
       const dPut = Math.abs(fut - putWall);
       const nearDist = Math.min(dCall, dPut);
@@ -267,7 +384,6 @@
         tnEl.textContent = 'ห้ามถือรอชน Strike บังคับ Fixed TP @ +$25 (ชนะ 72%)';
       }
 
-      // Build Table Rows
       const rows = [
         { name: '+3.0SD (Tail Extreme)', f: fut + 3 * sd1, prob: 'แตะ 7% | กลับตัว ≥$25 = 91.43%', strat: 'ดัก Sell คำใหญ่สุดของวัน (IBS > 0.85)', cls: 'text-rose-400' },
         { name: '+2.0SD (Kill Zone)', f: fut + 2 * sd1, prob: 'แตะ 28% | กลับตัว ≥$25 = 78.57%', strat: 'ดัก Sell หลัก (ทับ OI + IV Crush พุ่ง 91.4%)', cls: 'text-rose-300' },
@@ -282,8 +398,7 @@
       ].sort((a, b) => b.f - a.f);
 
       lastTableRows = rows.map(r => ({ ...r, dist: r.f - fut, s: r.f - diff }));
-      const tbody = document.getElementById('coordBody');
-      tbody.innerHTML = lastTableRows.map(r => {
+      document.getElementById('coordBody').innerHTML = lastTableRows.map(r => {
         const roundBadge = isRoundSpot(r.s) ? `<span class="ml-1.5 px-1.5 py-0.5 text-[10px] rounded bg-amber-500/20 text-amber-300">+5-8% เลขกลม</span>` : '';
         return `<tr class="hover:bg-slate-800/40">
           <td class="py-2 px-2 ${r.cls}">${r.name}</td>
@@ -295,117 +410,32 @@
         </tr>`;
       }).join('');
 
-      // Recovery Engine
       const entry = parseFloat(document.getElementById('inEntry').value) || spot;
       const side = document.getElementById('inSide').value;
       const dir = side === 'BUY' ? 1 : -1;
       const revSide = side === 'BUY' ? 'SELL' : 'BUY';
-      const cut1 = entry - 12.5 * dir;
-      const tp1 = entry - 25.0 * dir;
-      const cut2 = entry - 25.0 * dir;
-      const tp2 = entry - 37.5 * dir;
-
       document.getElementById('recoveryOut').innerHTML = `
         <div class="p-2.5 rounded bg-slate-900 border border-slate-700">
           <div class="text-sky-400 font-semibold">โหมดไม้เดียว (ทบ 2x)</div>
-          <div class="text-slate-300 mt-1">คัทสลับหน้า ${revSide} 2x @ <span class="text-rose-400 font-bold">${cut1.toFixed(2)}</span></div>
-          <div class="text-slate-300">TP ไม้แก้ (+12.5$ สุทธิ) @ <span class="text-emerald-400 font-bold">${tp1.toFixed(2)}</span></div>
+          <div class="text-slate-300 mt-1">คัทสลับหน้า ${revSide} 2x @ <span class="text-rose-400 font-bold">${(entry - 12.5 * dir).toFixed(2)}</span></div>
+          <div class="text-slate-300">TP ไม้แก้ (+12.5$ สุทธิ) @ <span class="text-emerald-400 font-bold">${(entry - 25.0 * dir).toFixed(2)}</span></div>
         </div>
         <div class="p-2.5 rounded bg-slate-900 border border-slate-700">
           <div class="text-amber-400 font-semibold">โหมดรวบ 2 ไม้ (ทบ 6x)</div>
-          <div class="text-slate-300 mt-1">คัทรวบสลับหน้า ${revSide} 6x @ <span class="text-rose-400 font-bold">${cut2.toFixed(2)}</span></div>
-          <div class="text-slate-300">TP ไม้แก้ (+37.5$ สุทธิ) @ <span class="text-emerald-400 font-bold">${tp2.toFixed(2)}</span></div>
+          <div class="text-slate-300 mt-1">คัทรวบสลับหน้า ${revSide} 6x @ <span class="text-rose-400 font-bold">${(entry - 25.0 * dir).toFixed(2)}</span></div>
+          <div class="text-slate-300">TP ไม้แก้ (+37.5$ สุทธิ) @ <span class="text-emerald-400 font-bold">${(entry - 37.5 * dir).toFixed(2)}</span></div>
         </div>`;
     }
 
-    function applySnapshot(data, label) {
-      document.getElementById('syncBadge').textContent = label;
-      const el = document.getElementById('clockBar');
-      el.dataset.locked = '1';
-      el.textContent = `TH: ${data.session.realtime_th} | CME: ${data.session.realtime_cme} | Trade Date: ${data.session.cme_trade_date} | Exp: ${data.expiration_used}`;
-
-      document.getElementById('inFut').value = data.underlying.futures_price;
-      if (data.summary.atm_iv) document.getElementById('inVol').value = data.summary.atm_iv;
-      if (data.summary.call_wall) document.getElementById('inCallWall').value = data.summary.call_wall;
-      if (data.summary.put_wall) document.getElementById('inPutWall').value = data.summary.put_wall;
-      document.getElementById('inEntry').value = (data.underlying.futures_price - parseFloat(document.getElementById('inDiff').value || 7.5)).toFixed(1);
-      document.getElementById('kpiPcRatio').textContent = `P/C Vol Ratio: ${data.summary.pc_vol_ratio ?? '--'} (P:${data.summary.total_put_vol} / C:${data.summary.total_call_vol})`;
-
-      currentStrikes = data.strikes_30 || [];
-      recalc();
-      renderChart();
-    }
-
-    async function loadLiveData() {
-      try {
-        const res = await fetch(`./data.json?t=${Date.now()}`);
-        if (!res.ok) throw new Error('ยังไม่มีไฟล์ data.json (ตลาดปิดเสาร์-อาทิตย์)');
-        const data = await res.json();
-        applySnapshot(data, `LIVE SYNC (${data.session.market_status})`);
-      } catch (e) {
-        loadSimNov23();
-        document.getElementById('syncBadge').textContent = 'รอตลาดเปิดจันทร์ 23 พ.ย. (แสดงโหมดจำลอง)';
-      }
-    }
-
-    function loadSimNov23() {
-      const baseFut = 4365.0;
-      const strikes = [];
-      for (let i = -15; i < 15; i++) {
-        const st = 4365 + i * 5;
-        const dist = Math.abs(st - baseFut);
-        const putVol = Math.max(5, Math.round((st <= baseFut ? 160 : 35) * Math.exp(-dist / 45) + (st === 4325 ? 210 : 0) + (st === 4350 ? 120 : 0)));
-        const callVol = Math.max(5, Math.round((st >= baseFut ? 175 : 30) * Math.exp(-dist / 45) + (st === 4400 ? 240 : 0) + (st === 4380 ? 130 : 0)));
-        strikes.push({
-          strike: st,
-          put_vol: putVol,
-          call_vol: callVol,
-          put_oi: putVol * 4 + (st === 4325 ? 650 : 0),
-          call_oi: callVol * 4 + (st === 4400 ? 720 : 0)
-        });
-      }
-      const totalP = strikes.reduce((a, b) => a + b.put_vol, 0);
-      const totalC = strikes.reduce((a, b) => a + b.call_vol, 0);
-      applySnapshot({
-        session: {
-          market_status: 'OPEN (SIMULATION)',
-          realtime_th: '2026-11-23 09:00:00 ICT',
-          realtime_cme: '2026-11-22 20:00:00 CST',
-          cme_trade_date: '2026-11-23'
-        },
-        expiration_used: '2026-11-23 (0DTE)',
-        underlying: { futures_price: baseFut },
-        summary: {
-          atm_iv: 31.21,
-          call_wall: 4400,
-          put_wall: 4325,
-          total_put_vol: totalP,
-          total_call_vol: totalC,
-          pc_vol_ratio: (totalP / totalC).toFixed(2)
-        },
-        strikes_30: strikes
-      }, 'SIMULATION: จันทร์ 23 พ.ย. 2026');
-    }
-
-    function resetDefaults() {
-      document.getElementById('inDiff').value = 7.5;
-      document.getElementById('inDte').value = 1.0;
-      document.getElementById('inVolChg').value = -0.15;
-      loadSimNov23();
-    }
-
     function copyTable(type) {
-      let text = '';
-      if (type === 'tsv') {
-        text = 'Zone\tDist\tFutures\tXAUUSD\tProb\tStrategy\n' + lastTableRows.map(r => `${r.name}\t${r.dist.toFixed(2)}\t${r.f.toFixed(2)}\t${r.s.toFixed(2)}\t${r.prob}\t${r.strat}`).join('\n');
-      } else {
-        text = '| โซน | ระยะ | Futures | XAUUSD | ความน่าจะเป็น | กลยุทธ์ |\n|---|---:|---:|---:|---|---|\n' + lastTableRows.map(r => `| ${r.name} | ${r.dist.toFixed(2)} | ${r.f.toFixed(2)} | **${r.s.toFixed(2)}** | ${r.prob} | ${r.strat} |`).join('\n');
-      }
+      const text = type === 'tsv'
+        ? 'Zone\tDist\tFutures\tXAUUSD\tProb\tStrategy\n' + lastTableRows.map(r => `${r.name}\t${r.dist.toFixed(2)}\t${r.f.toFixed(2)}\t${r.s.toFixed(2)}\t${r.prob}\t${r.strat}`).join('\n')
+        : '| โซน | ระยะ | Futures | XAUUSD | ความน่าจะเป็น | กลยุทธ์ |\n|---|---:|---:|---:|---|---|\n' + lastTableRows.map(r => `| ${r.name} | ${r.dist.toFixed(2)} | ${r.f.toFixed(2)} | **${r.s.toFixed(2)}** | ${r.prob} | ${r.strat} |`).join('\n');
       navigator.clipboard.writeText(text);
       alert(`คัดลอกตาราง (${type.toUpperCase()}) เรียบร้อยแล้ว`);
     }
 
-    loadLiveData();
+    fetchFromWorker();
   </script>
 </body>
 </html>
