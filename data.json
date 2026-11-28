@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "fetched_at_utc": "2026-11-28T09:19:26.937Z",
+  "fetched_at_utc": "2026-11-28T10:21:11.486Z",
   "underlying": {
     "futures_price": 3668.5,
     "change": 3.7530403303354207,
@@ -144233,5 +144233,5 @@
     ]
   },
   "updated_by": "github-actions-via-worker",
-  "updated_at_utc": "2026-11-28T09:19:27.029930+00:00"
+  "updated_at_utc": "2026-11-28T10:21:11.596581+00:00"
 }
